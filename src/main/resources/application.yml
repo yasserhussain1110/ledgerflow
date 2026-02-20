@@ -18,6 +18,10 @@ spring:
     init:
       mode: never
 
+  flyway:
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
 logging:
   level:
     org.hibernate.SQL: DEBUG
