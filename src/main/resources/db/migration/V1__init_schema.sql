@@ -1,7 +1,9 @@
 -- ============================================
 -- LedgerFlow - Initial Schema
--- Phase 1: Clean Double-Entry Ledger
 -- ============================================
+
+-- Enable UUID generation (safe if already enabled)
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 
 -- ============================================
@@ -37,7 +39,7 @@ CREATE TABLE ledger_accounts (
 
 
 -- ============================================
--- LEDGER ENTRIES (Append-only)
+-- LEDGER ENTRIES (Append-only Double Entry)
 -- ============================================
 
 CREATE TABLE ledger_entries (
@@ -88,10 +90,8 @@ CREATE INDEX idx_idempotency_key
 
 
 -- ============================================
--- INITIAL SYSTEM LEDGER ACCOUNTS
+-- INITIAL SYSTEM ACCOUNTS
 -- ============================================
-
--- Insert core accounts required for payment posting
 
 INSERT INTO ledger_accounts (id, name, type, created_at)
 VALUES
