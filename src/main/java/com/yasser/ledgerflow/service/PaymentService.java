@@ -144,6 +144,7 @@ public class PaymentService {
                     key.setIdempotencyKey(keyValue);
                     key.setStatus(IdempotencyStatus.IN_PROGRESS);
                     key.setCreatedAt(Instant.now());
+                    key.setRequestHash(keyValue);
                     return idempotencyKeyRepository.save(key);
                 });
     }
