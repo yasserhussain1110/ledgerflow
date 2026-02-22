@@ -12,7 +12,3 @@ spring:
   h2:
     console:
       enabled: true
-  flyway:
-    placeholders:
-      postgres-only: "-- Skipped on H2"
-      uuid_func: "RANDOM_UUID()"

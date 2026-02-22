@@ -1,17 +1,9 @@
 -- =====================================================
--- ENABLE EXTENSIONS
--- =====================================================
-
--- Only run on Postgres
--- ${postgres-only}
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
--- =====================================================
 -- MERCHANTS
 -- =====================================================
 
 CREATE TABLE merchants (
-                           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                           id UUID PRIMARY KEY,
                            name VARCHAR(150) NOT NULL,
                            email VARCHAR(150) UNIQUE NOT NULL,
                            created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
@@ -24,7 +16,7 @@ CREATE TABLE merchants (
 -- =====================================================
 
 CREATE TABLE payments (
-                          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                          id UUID PRIMARY KEY,
 
                           merchant_id UUID NOT NULL,
 
@@ -55,7 +47,7 @@ CREATE INDEX idx_payments_merchant ON payments(merchant_id);
 -- =====================================================
 
 CREATE TABLE ledger_accounts (
-                                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                                 id UUID PRIMARY KEY,
 
                                  merchant_id UUID NOT NULL,
 
@@ -81,7 +73,7 @@ CREATE INDEX idx_ledger_accounts_merchant
 -- =====================================================
 
 CREATE TABLE ledger_entries (
-                                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                                id UUID PRIMARY KEY,
 
                                 transaction_id UUID NOT NULL, -- payment id
 
@@ -111,7 +103,7 @@ CREATE INDEX idx_ledger_entries_transaction
 -- =====================================================
 
 CREATE TABLE idempotency_keys (
-                                  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                                  id UUID PRIMARY KEY,
 
                                   merchant_id UUID NOT NULL,
 
