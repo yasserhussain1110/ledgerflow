@@ -36,7 +36,7 @@ public class Payment {
     private String currency;
 
     @Column(nullable = false, length = 50)
-    private String status;
+    private PaymentStatus status;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;

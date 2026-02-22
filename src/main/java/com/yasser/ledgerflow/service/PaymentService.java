@@ -10,6 +10,8 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import static com.yasser.ledgerflow.domain.PaymentStatus.INITIATED;
+
 @Service
 public class PaymentService {
 
@@ -32,7 +34,7 @@ public class PaymentService {
                 merchantId,
                 amount,
                 currency,
-                "COMPLETED",
+                INITIATED,
                 Instant.now(),
                 Instant.now()
         );
