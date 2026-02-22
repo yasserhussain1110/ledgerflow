@@ -3,29 +3,44 @@ package com.yasser.ledgerflow.service;
 import com.yasser.ledgerflow.domain.Payment;
 import com.yasser.ledgerflow.repository.PaymentRepository;
 
-import lombok.RequiredArgsConstructor;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
-
 @Service
-@RequiredArgsConstructor
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final LedgerService ledgerService;
 
+    public PaymentService(PaymentRepository paymentRepository,
+                          LedgerService ledgerService) {
+        this.paymentRepository = paymentRepository;
+        this.ledgerService = ledgerService;
+    }
+
     @Transactional
-    public Payment createPayment(Payment payment) {
+    public Payment createPayment(UUID merchantId,
+                                 BigDecimal amount,
+                                 String currency) {
 
-        payment.setCreatedAt(Instant.now());
+        Payment payment = new Payment(
+                UUID.randomUUID(),
+                merchantId,
+                amount,
+                currency,
+                "COMPLETED",
+                Instant.now(),
+                Instant.now()
+        );
 
-        Payment savedPayment = paymentRepository.save(payment);
+        paymentRepository.save(payment);
 
-        ledgerService.postPaymentEntries(savedPayment);
+        ledgerService.postPaymentEntries(payment.getId(), amount);
 
-        return savedPayment;
+        return payment;
     }
 }
