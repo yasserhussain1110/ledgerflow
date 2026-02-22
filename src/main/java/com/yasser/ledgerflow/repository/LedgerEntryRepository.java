@@ -11,7 +11,7 @@ import org.springframework.data.repository.query.Param;
 public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> {
 
     @Query("""
-    SELECT COALESCE(SUM(e.debitAmount - e.creditAmount), 0)
+    SELECT COALESCE(SUM(e.creditAmount - e.debitAmount), 0)
     FROM LedgerEntry e
     WHERE e.accountId = :accountId
     """)

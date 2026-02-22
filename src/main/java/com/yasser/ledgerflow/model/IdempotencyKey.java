@@ -10,11 +10,13 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 import static com.yasser.ledgerflow.model.IdempotencyStatus.COMPLETED;
@@ -30,6 +32,8 @@ import static com.yasser.ledgerflow.model.IdempotencyStatus.FAILED;
 )
 @Getter
 @Setter
+@AllArgsConstructor
+@NoArgsConstructor
 public class IdempotencyKey {
 
     @Id
@@ -54,27 +58,10 @@ public class IdempotencyKey {
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "expires_at")
-    private OffsetDateTime expiresAt;
-
-    protected IdempotencyKey() {
-    }
-
-    public IdempotencyKey(
-            UUID merchantId,
-            String idempotencyKey,
-            String requestHash,
-            IdempotencyStatus status,
-            OffsetDateTime expiresAt
-    ) {
-        this.merchantId = merchantId;
-        this.idempotencyKey = idempotencyKey;
-        this.requestHash = requestHash;
-        this.status = status;
-        this.expiresAt = expiresAt;
-    }
+    private Instant expiresAt;
 
     public void markCompleted(String responsePayload) {
         this.status = COMPLETED;

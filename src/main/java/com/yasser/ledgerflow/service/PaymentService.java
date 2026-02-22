@@ -1,99 +1,83 @@
 package com.yasser.ledgerflow.service;
 
+import java.time.Instant;
+import java.util.UUID;
+
 import com.yasser.ledgerflow.model.IdempotencyKey;
 import com.yasser.ledgerflow.model.Payment;
-import com.yasser.ledgerflow.model.PaymentStatus;
+import com.yasser.ledgerflow.model.IdempotencyStatus;
 import com.yasser.ledgerflow.repository.IdempotencyKeyRepository;
 import com.yasser.ledgerflow.repository.PaymentRepository;
-
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
-import java.util.UUID;
+import static com.yasser.ledgerflow.model.PaymentStatus.INITIATED;
 
 @Service
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
-    private final LedgerService ledgerService;
     private final IdempotencyKeyRepository idempotencyKeyRepository;
 
     public PaymentService(PaymentRepository paymentRepository,
-                          LedgerService ledgerService,
                           IdempotencyKeyRepository idempotencyKeyRepository) {
         this.paymentRepository = paymentRepository;
-        this.ledgerService = ledgerService;
         this.idempotencyKeyRepository = idempotencyKeyRepository;
     }
 
+    /**
+     * Create a payment with idempotency support
+     */
     @Transactional
-    public Payment createPayment(UUID merchantId,
-                                 Long amount,
-                                 String currency,
-                                 String idempotencyKeyValue) {
+    public Payment createPayment(UUID merchantId, Long amount, String currency, String idempotencyKeyValue) {
 
-        // 1. Check if idempotency key already exists
+        // Check if this idempotency key already exists
         IdempotencyKey existingKey = idempotencyKeyRepository
-                .findByIdempotencyKey(idempotencyKeyValue)
+                .findByMerchantIdAndIdempotencyKey(merchantId, idempotencyKeyValue)
                 .orElse(null);
 
         if (existingKey != null) {
-            // In real system you'd deserialize stored response
-            // For now, just return existing payment
-            return paymentRepository.findById(UUID.fromString(existingKey.getResponsePayload()))
-                    .orElseThrow(() -> new IllegalStateException("Stored payment not found"));
+            if (existingKey.getStatus() == IdempotencyStatus.COMPLETED) {
+                // Return previously created payment
+                return paymentRepository.findById(UUID.fromString(existingKey.getResponsePayload()))
+                        .orElseThrow(() -> new IllegalStateException("Previously completed payment not found"));
+            } else if (existingKey.getStatus() == IdempotencyStatus.IN_PROGRESS) {
+                throw new IllegalStateException("Payment creation already in progress for this key");
+            } else {
+                // FAILED: we can retry
+                existingKey.setStatus(IdempotencyStatus.IN_PROGRESS);
+                idempotencyKeyRepository.save(existingKey);
+            }
+        } else {
+            // Create new idempotency key
+            existingKey = new IdempotencyKey();
+            existingKey.setId(UUID.randomUUID());
+            existingKey.setMerchantId(merchantId);
+            existingKey.setIdempotencyKey(idempotencyKeyValue);
+            existingKey.setStatus(IdempotencyStatus.IN_PROGRESS);
+            existingKey.setCreatedAt(Instant.now());
+            idempotencyKeyRepository.save(existingKey);
         }
 
-        // 2. Create payment
-        Payment payment = new Payment();
-        payment.setId(UUID.randomUUID());
-        payment.setMerchantId(merchantId);
-        payment.setAmount(amount);
-        payment.setCurrency(currency);
-        payment.setStatus(PaymentStatus.INITIATED);
+        // Create the payment
+        Payment payment = Payment.builder()
+                .id(UUID.randomUUID())
+                .merchantId(merchantId)
+                .amount(amount)
+                .currency(currency)
+                .status(INITIATED)
+                .version(0L)
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
 
         Payment savedPayment = paymentRepository.save(payment);
 
-        // 3. Store idempotency record
-//        IdempotencyKey idempotencyKey = new IdempotencyKey();
-//        idempotencyKey.setId(UUID.randomUUID());
-//        idempotencyKey.setIdempotencyKey(idempotencyKeyValue);
-//        idempotencyKey.setRequestHash("simple-hash"); // placeholder
-//        idempotencyKey.setResponseBody(savedPayment.getId().toString());
-//        idempotencyKey.setCreatedAt(java.time.Instant.now());
-//
-//        idempotencyKeyRepository.save(idempotencyKey);
+        // Update idempotency key with completed status and response payload
+        existingKey.setStatus(IdempotencyStatus.COMPLETED);
+        existingKey.setResponsePayload(savedPayment.getId().toString());
+        idempotencyKeyRepository.save(existingKey);
 
         return savedPayment;
-    }
-
-    @Transactional
-    public Payment capturePayment(UUID paymentId) {
-
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
-
-        if (payment.getStatus() != PaymentStatus.AUTHORIZED &&
-                payment.getStatus() != PaymentStatus.INITIATED) {
-            throw new IllegalStateException("Invalid state transition");
-        }
-
-        ledgerService.postTransaction(payment.getId(), payment.getAmount());
-
-        payment.setStatus(PaymentStatus.CAPTURED);
-
-        return paymentRepository.save(payment);
-    }
-
-    @Transactional
-    public Payment failPayment(UUID paymentId) {
-
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
-
-        payment.setStatus(PaymentStatus.FAILED);
-
-        return paymentRepository.save(payment);
     }
 }
