@@ -1,16 +1,20 @@
 package com.yasser.ledgerflow.service;
 
-import java.time.Instant;
 import java.util.UUID;
 
 import com.yasser.ledgerflow.model.IdempotencyKey;
-import com.yasser.ledgerflow.model.IdempotencyStatus;
 import com.yasser.ledgerflow.model.Payment;
-import com.yasser.ledgerflow.model.PaymentStatus;
 import com.yasser.ledgerflow.repository.IdempotencyKeyRepository;
 import com.yasser.ledgerflow.repository.PaymentRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
+
+import static com.yasser.ledgerflow.model.IdempotencyStatus.COMPLETED;
+import static com.yasser.ledgerflow.model.IdempotencyStatus.IN_PROGRESS;
+import static com.yasser.ledgerflow.model.PaymentStatus.CANCELED;
+import static com.yasser.ledgerflow.model.PaymentStatus.CAPTURED;
+import static com.yasser.ledgerflow.model.PaymentStatus.INITIATED;
+import static java.time.Instant.now;
 
 @Service
 public class PaymentService {
@@ -34,7 +38,7 @@ public class PaymentService {
     public Payment createPayment(UUID merchantId, Long amount, String currency, String idempotencyKeyValue) {
         IdempotencyKey key = getOrCreateIdempotencyKey(merchantId, idempotencyKeyValue);
 
-        if (key.getStatus() == IdempotencyStatus.COMPLETED) {
+        if (key.getStatus() == COMPLETED) {
             return paymentRepository.findById(UUID.fromString(key.getResponsePayload()))
                     .orElseThrow(() -> new IllegalStateException("Previously completed payment not found"));
         }
@@ -44,16 +48,16 @@ public class PaymentService {
                 .merchantId(merchantId)
                 .amount(amount)
                 .currency(currency)
-                .status(PaymentStatus.INITIATED)
+                .status(INITIATED)
                 .version(0L)
-                .createdAt(Instant.now())
-                .updatedAt(Instant.now())
+                .createdAt(now())
+                .updatedAt(now())
                 .build();
 
         Payment savedPayment = paymentRepository.save(payment);
 
         // Update idempotency key
-        key.setStatus(IdempotencyStatus.COMPLETED);
+        key.setStatus(COMPLETED);
         key.setResponsePayload(savedPayment.getId().toString());
         idempotencyKeyRepository.save(key);
 
@@ -70,17 +74,17 @@ public class PaymentService {
 
         IdempotencyKey key = getOrCreateIdempotencyKey(payment.getMerchantId(), idempotencyKeyValue);
 
-        if (key.getStatus() == IdempotencyStatus.COMPLETED) {
+        if (key.getStatus() == COMPLETED) {
             return payment; // already completed
         }
 
-        if (payment.getStatus() != PaymentStatus.INITIATED) {
+        if (payment.getStatus() != INITIATED) {
             throw new IllegalStateException("Payment is not in PENDING state");
         }
 
         // Update payment status
-        payment.setStatus(PaymentStatus.CAPTURED);
-        payment.setUpdatedAt(Instant.now());
+        payment.setStatus(CAPTURED);
+        payment.setUpdatedAt(now());
         paymentRepository.save(payment);
 
         // Add Ledger entry here
@@ -95,7 +99,7 @@ public class PaymentService {
         );
 
         // Mark idempotency key as completed
-        key.setStatus(IdempotencyStatus.COMPLETED);
+        key.setStatus(COMPLETED);
         key.setResponsePayload(payment.getId().toString());
         idempotencyKeyRepository.save(key);
 
@@ -112,19 +116,19 @@ public class PaymentService {
 
         IdempotencyKey key = getOrCreateIdempotencyKey(payment.getMerchantId(), idempotencyKeyValue);
 
-        if (key.getStatus() == IdempotencyStatus.COMPLETED) {
+        if (key.getStatus() == COMPLETED) {
             return payment; // already canceled or completed
         }
 
-        if (payment.getStatus() != PaymentStatus.INITIATED) {
+        if (payment.getStatus() != INITIATED) {
             throw new IllegalStateException("Only PENDING payments can be canceled");
         }
 
-        payment.setStatus(PaymentStatus.CANCELED);
-        payment.setUpdatedAt(Instant.now());
+        payment.setStatus(CANCELED);
+        payment.setUpdatedAt(now());
         paymentRepository.save(payment);
 
-        key.setStatus(IdempotencyStatus.COMPLETED);
+        key.setStatus(COMPLETED);
         key.setResponsePayload(payment.getId().toString());
         idempotencyKeyRepository.save(key);
 
@@ -142,8 +146,8 @@ public class PaymentService {
                     key.setId(UUID.randomUUID());
                     key.setMerchantId(merchantId);
                     key.setIdempotencyKey(keyValue);
-                    key.setStatus(IdempotencyStatus.IN_PROGRESS);
-                    key.setCreatedAt(Instant.now());
+                    key.setStatus(IN_PROGRESS);
+                    key.setCreatedAt(now());
                     key.setRequestHash(keyValue);
                     return idempotencyKeyRepository.save(key);
                 });
