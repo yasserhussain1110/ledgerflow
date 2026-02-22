@@ -67,4 +67,10 @@ public class LedgerService {
 
         return postTransaction(transactionId, platformCash.getId(), merchantPayable.getId(), amount);
     }
+
+    public UUID getAccountIdByName(String name) {
+        return accountRepository.findByName(name)
+                .orElseThrow(() -> new IllegalStateException(name + " account missing"))
+                .getId();
+    }
 }
