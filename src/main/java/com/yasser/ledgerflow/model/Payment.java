@@ -16,7 +16,6 @@ import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -35,7 +34,7 @@ public class Payment {
     @Column(name = "merchant_id", nullable = false)
     private UUID merchantId;
 
-    @Column(nullable = false, precision = 19, scale = 4)
+    @Column(nullable = false)
     private Long amount;
 
     @Column(nullable = false)
