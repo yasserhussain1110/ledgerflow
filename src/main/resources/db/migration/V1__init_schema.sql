@@ -150,11 +150,11 @@ VALUES (
 
 -- Create system ledger accounts for default merchant
 
-INSERT INTO ledger_accounts (merchant_id, name, type)
+INSERT INTO ledger_accounts (id, merchant_id, name, type)
 VALUES
-    ('11111111-1111-1111-1111-111111111111', 'Cash Account', 'ASSET'),
-    ('11111111-1111-1111-1111-111111111111', 'Revenue Account', 'REVENUE'),
-    ('11111111-1111-1111-1111-111111111111', 'Clearing Account', 'LIABILITY');
+    ('6a2f3c9e-1d7b-4f81-a2c3-9b8e7d6c5f4a', '11111111-1111-1111-1111-111111111111', 'Cash Account', 'ASSET'),
+    ('7e2b3c1f-9a4d-4f71-8b2e-3c6d5f7a9b0c', '11111111-1111-1111-1111-111111111111', 'Revenue Account', 'REVENUE'),
+    ('d4a1f2b3-3c8e-4a5b-9f1d-0e2a3b4c5d6f', '11111111-1111-1111-1111-111111111111', 'Clearing Account', 'LIABILITY');
 
 ALTER TABLE payments
     ADD CONSTRAINT chk_payment_status
