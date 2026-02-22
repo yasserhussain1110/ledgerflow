@@ -1,6 +1,6 @@
 package com.yasser.ledgerflow.repository;
 
-import com.yasser.ledgerflow.domain.LedgerEntry;
+import com.yasser.ledgerflow.model.LedgerEntry;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -23,5 +23,5 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> 
         FROM LedgerEntry e
         WHERE e.account.id = :accountId
     """)
-    BigDecimal calculateBalance(@Param("accountId") UUID accountId);
+    Long calculateBalance(@Param("accountId") UUID accountId);
 }

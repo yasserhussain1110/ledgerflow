@@ -1,6 +1,6 @@
 package com.yasser.ledgerflow.repository;
 
-import com.yasser.ledgerflow.domain.Payment;
+import com.yasser.ledgerflow.model.Payment;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.UUID;

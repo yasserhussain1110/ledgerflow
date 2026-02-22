@@ -1,84 +1,56 @@
 package com.yasser.ledgerflow.service;
 
-import com.yasser.ledgerflow.domain.LedgerAccount;
-import com.yasser.ledgerflow.domain.LedgerEntry;
-import com.yasser.ledgerflow.repository.LedgerAccountRepository;
-import com.yasser.ledgerflow.repository.LedgerEntryRepository;
-
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
+import com.yasser.ledgerflow.model.LedgerAccount;
+import com.yasser.ledgerflow.model.LedgerEntry;
+import com.yasser.ledgerflow.repository.LedgerAccountRepository;
+import com.yasser.ledgerflow.repository.LedgerEntryRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class LedgerService {
 
-    private final LedgerEntryRepository ledgerEntryRepository;
-    private final LedgerAccountRepository ledgerAccountRepository;
+    private final LedgerAccountRepository accountRepository;
+    private final LedgerEntryRepository entryRepository;
 
-    public LedgerService(LedgerEntryRepository ledgerEntryRepository,
-                         LedgerAccountRepository ledgerAccountRepository) {
-        this.ledgerEntryRepository = ledgerEntryRepository;
-        this.ledgerAccountRepository = ledgerAccountRepository;
+    public LedgerService(LedgerAccountRepository accountRepository,
+                         LedgerEntryRepository entryRepository) {
+        this.accountRepository = accountRepository;
+        this.entryRepository = entryRepository;
     }
 
     @Transactional
-    public void postPaymentEntries(UUID paymentId,
-                                   BigDecimal amount) {
+    public void postTransaction(UUID transactionId, Long amount) {
 
-        LedgerAccount platformCash =
-                ledgerAccountRepository.findByName("PLATFORM_CASH")
-                        .orElseThrow(() -> new IllegalStateException("Platform account missing"));
+        LedgerAccount platformCash = accountRepository.findByName("PLATFORM_CASH")
+                .orElseThrow(() -> new IllegalStateException("Platform account missing"));
 
-        LedgerAccount merchantBalance =
-                ledgerAccountRepository.findByName("MERCHANT_BALANCE")
-                        .orElseThrow(() -> new IllegalStateException("Merchant account missing"));
+        LedgerAccount merchantPayable = accountRepository.findByName("MERCHANT_PAYABLE")
+                .orElseThrow(() -> new IllegalStateException("Merchant payable account missing"));
 
-        LedgerEntry debitEntry = new LedgerEntry(
-                UUID.randomUUID(),
-                paymentId,
-                platformCash,
-                "DEBIT",
-                amount,
-                Instant.now()
-        );
+        // Debit entry
+        LedgerEntry debitEntry = new LedgerEntry();
+        debitEntry.setId(UUID.randomUUID());
+        debitEntry.setTransactionId(transactionId);
+        debitEntry.setAccountId(platformCash.getId());
+        debitEntry.setDebitAmount(amount);
+        debitEntry.setCreditAmount(0L);
+        debitEntry.setCreatedAt(Instant.now());
 
-        LedgerEntry creditEntry = new LedgerEntry(
-                UUID.randomUUID(),
-                paymentId,
-                merchantBalance,
-                "CREDIT",
-                amount,
-                Instant.now()
-        );
+        // Credit entry
+        LedgerEntry creditEntry = new LedgerEntry();
+        creditEntry.setId(UUID.randomUUID());
+        creditEntry.setTransactionId(transactionId);
+        creditEntry.setAccountId(merchantPayable.getId());
+        creditEntry.setDebitAmount(0L);
+        creditEntry.setCreditAmount(amount);
+        creditEntry.setCreatedAt(Instant.now());
 
-        validateBalanced(List.of(debitEntry, creditEntry));
-
-        ledgerEntryRepository.saveAll(List.of(debitEntry, creditEntry));
-    }
-
-    private void validateBalanced(List<LedgerEntry> entries) {
-
-        BigDecimal totalDebits = BigDecimal.ZERO;
-        BigDecimal totalCredits = BigDecimal.ZERO;
-
-        for (LedgerEntry entry : entries) {
-            if ("DEBIT".equals(entry.getType())) {
-                totalDebits = totalDebits.add(entry.getAmount());
-            } else if ("CREDIT".equals(entry.getType())) {
-                totalCredits = totalCredits.add(entry.getAmount());
-            }
-        }
-
-        if (totalDebits.compareTo(totalCredits) != 0) {
-            throw new IllegalStateException("Ledger entries are not balanced");
-        }
-    }
-
-    public BigDecimal getAccountBalance(UUID accountId) {
-        return ledgerEntryRepository.calculateBalance(accountId);
+        entryRepository.save(debitEntry);
+        entryRepository.save(creditEntry);
     }
 }

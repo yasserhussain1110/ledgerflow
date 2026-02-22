@@ -1,11 +1,8 @@
-package com.yasser.ledgerflow.domain;
+package com.yasser.ledgerflow.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -23,22 +20,20 @@ import java.util.UUID;
 @Getter
 @Setter
 public class LedgerEntry {
-
     @Id
     private UUID id;
 
-    @Column(name = "payment_id", nullable = false)
-    private UUID paymentId;
+    @Column(name = "transaction_id", nullable = false)
+    private UUID transactionId;
 
-    @ManyToOne
-    @JoinColumn(name = "account_id", nullable = false)
-    private LedgerAccount account;
+    @Column(name = "account_id", nullable = false)
+    private UUID accountId;
 
-    @Column(nullable = false, length = 10)
-    private String type;
+    @Column(name = "debit_amount")
+    private Long debitAmount;
 
-    @Column(nullable = false, precision = 19, scale = 4)
-    private BigDecimal amount;
+    @Column(name = "credit_amount")
+    private Long creditAmount;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;

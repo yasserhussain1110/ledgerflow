@@ -1,99 +1,165 @@
--- ============================================
--- LedgerFlow - Initial Schema
--- ============================================
+-- =====================================================
+-- ENABLE EXTENSIONS
+-- =====================================================
 
--- Enable UUID generation (safe if already enabled)
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 
--- ============================================
+
+-- =====================================================
+-- MERCHANTS
+-- =====================================================
+
+CREATE TABLE merchants (
+                           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                           name VARCHAR(150) NOT NULL,
+                           email VARCHAR(150) UNIQUE NOT NULL,
+                           created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+
+
+-- =====================================================
 -- PAYMENTS
--- ============================================
+-- =====================================================
 
 CREATE TABLE payments (
-                          id UUID PRIMARY KEY,
+                          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
                           merchant_id UUID NOT NULL,
-                          amount NUMERIC(19,4) NOT NULL,
+
+                          amount BIGINT NOT NULL, -- stored in minor units (cents/paise)
+
                           currency VARCHAR(10) NOT NULL,
-                          status VARCHAR(50) NOT NULL,
-                          created_at TIMESTAMP NOT NULL,
-                          updated_at TIMESTAMP NOT NULL
+
+                          status VARCHAR(50) NOT NULL, -- matches PaymentStatus enum
+
+                          version BIGINT NOT NULL DEFAULT 0,
+
+                          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+                          updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_payments_status
-    ON payments(status);
+ALTER TABLE payments
+    ADD CONSTRAINT fk_payments_merchant
+        FOREIGN KEY (merchant_id)
+            REFERENCES merchants(id);
+
+CREATE INDEX idx_payments_status ON payments(status);
+CREATE INDEX idx_payments_merchant ON payments(merchant_id);
 
 
 
--- ============================================
+-- =====================================================
 -- LEDGER ACCOUNTS
--- ============================================
+-- =====================================================
 
 CREATE TABLE ledger_accounts (
-                                 id UUID PRIMARY KEY,
-                                 name VARCHAR(100) NOT NULL UNIQUE,
-                                 type VARCHAR(50) NOT NULL,
-                                 created_at TIMESTAMP NOT NULL
+                                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+                                 merchant_id UUID NOT NULL,
+
+                                 name VARCHAR(100) NOT NULL,
+
+                                 type VARCHAR(50) NOT NULL, -- ASSET, LIABILITY, REVENUE
+
+                                 created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
+ALTER TABLE ledger_accounts
+    ADD CONSTRAINT fk_ledger_accounts_merchant
+        FOREIGN KEY (merchant_id)
+            REFERENCES merchants(id);
+
+CREATE INDEX idx_ledger_accounts_merchant
+    ON ledger_accounts(merchant_id);
 
 
--- ============================================
--- LEDGER ENTRIES (Append-only Double Entry)
--- ============================================
+
+-- =====================================================
+-- LEDGER ENTRIES
+-- =====================================================
 
 CREATE TABLE ledger_entries (
-                                id UUID PRIMARY KEY,
-                                payment_id UUID NOT NULL,
+                                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+                                transaction_id UUID NOT NULL, -- payment id
+
                                 account_id UUID NOT NULL,
-                                type VARCHAR(10) NOT NULL,
-                                amount NUMERIC(19,4) NOT NULL,
-                                created_at TIMESTAMP NOT NULL,
 
-                                CONSTRAINT fk_ledger_account
-                                    FOREIGN KEY (account_id)
-                                        REFERENCES ledger_accounts(id),
+                                debit_amount BIGINT NOT NULL DEFAULT 0,
+                                credit_amount BIGINT NOT NULL DEFAULT 0,
 
-                                CONSTRAINT fk_ledger_payment
-                                    FOREIGN KEY (payment_id)
-                                        REFERENCES payments(id),
-
-                                CONSTRAINT chk_ledger_entry_type
-                                    CHECK (type IN ('DEBIT', 'CREDIT'))
+                                created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
+
+ALTER TABLE ledger_entries
+    ADD CONSTRAINT fk_ledger_entries_account
+        FOREIGN KEY (account_id)
+            REFERENCES ledger_accounts(id);
 
 CREATE INDEX idx_ledger_entries_account
     ON ledger_entries(account_id);
 
-CREATE INDEX idx_ledger_entries_payment
-    ON ledger_entries(payment_id);
+CREATE INDEX idx_ledger_entries_transaction
+    ON ledger_entries(transaction_id);
 
 
 
--- ============================================
+-- =====================================================
 -- IDEMPOTENCY KEYS
--- ============================================
+-- =====================================================
 
 CREATE TABLE idempotency_keys (
-                                  id UUID PRIMARY KEY,
-                                  idempotency_key VARCHAR(255) NOT NULL,
-                                  request_hash TEXT NOT NULL,
-                                  response_body TEXT NOT NULL,
-                                  created_at TIMESTAMP NOT NULL,
+                                  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-                                  CONSTRAINT uq_idempotency_key UNIQUE (idempotency_key)
+                                  merchant_id UUID NOT NULL,
+
+                                  idempotency_key VARCHAR(100) NOT NULL,
+
+                                  request_hash VARCHAR(255) NOT NULL,
+
+                                  response_payload TEXT,
+
+                                  status VARCHAR(50) NOT NULL, -- IN_PROGRESS, COMPLETED, FAILED
+
+                                  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+
+                                  expires_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX idx_idempotency_key
-    ON idempotency_keys(idempotency_key);
+ALTER TABLE idempotency_keys
+    ADD CONSTRAINT fk_idempotency_merchant
+        FOREIGN KEY (merchant_id)
+            REFERENCES merchants(id);
+
+-- A merchant cannot reuse same idempotency key
+CREATE UNIQUE INDEX ux_idempotency_merchant_key
+    ON idempotency_keys (merchant_id, idempotency_key);
+
+CREATE INDEX idx_idempotency_expires
+    ON idempotency_keys (expires_at);
 
 
 
--- ============================================
--- INITIAL SYSTEM ACCOUNTS
--- ============================================
+-- =====================================================
+-- SYSTEM SEED DATA
+-- =====================================================
 
-INSERT INTO ledger_accounts (id, name, type, created_at)
+-- Create a default merchant
+
+INSERT INTO merchants (id, name, email)
+VALUES (
+           '11111111-1111-1111-1111-111111111111',
+           'Default Merchant',
+           'merchant@ledgerflow.com'
+       );
+
+
+-- Create system ledger accounts for default merchant
+
+INSERT INTO ledger_accounts (merchant_id, name, type)
 VALUES
-    (gen_random_uuid(), 'PLATFORM_CASH', 'ASSET', now()),
-    (gen_random_uuid(), 'MERCHANT_BALANCE', 'LIABILITY', now());
+    ('11111111-1111-1111-1111-111111111111', 'Cash Account', 'ASSET'),
+    ('11111111-1111-1111-1111-111111111111', 'Revenue Account', 'REVENUE'),
+    ('11111111-1111-1111-1111-111111111111', 'Clearing Account', 'LIABILITY');

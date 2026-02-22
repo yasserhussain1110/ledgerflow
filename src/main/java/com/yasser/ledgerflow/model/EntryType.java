@@ -1,4 +1,4 @@
-package com.yasser.ledgerflow.domain;
+package com.yasser.ledgerflow.model;
 
 public enum EntryType {
     DEBIT,

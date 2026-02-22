@@ -1,6 +1,6 @@
 package com.yasser.ledgerflow.repository;
 
-import com.yasser.ledgerflow.domain.LedgerAccount;
+import com.yasser.ledgerflow.model.LedgerAccount;
 
 import java.util.Optional;
 import java.util.UUID;
