@@ -7,12 +7,16 @@ import com.yasser.ledgerflow.model.IdempotencyStatus;
 import com.yasser.ledgerflow.repository.IdempotencyKeyRepository;
 import com.yasser.ledgerflow.repository.PaymentRepository;
 import com.yasser.ledgerflow.service.PaymentService;
+import org.flywaydb.core.internal.jdbc.JdbcTemplate;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.SQLException;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @Transactional
+@ActiveProfiles("test")
 class PaymentServiceTest {
 
     @Autowired
@@ -32,6 +37,19 @@ class PaymentServiceTest {
     private IdempotencyKeyRepository idempotencyKeyRepository;
 
     private UUID merchantId;
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    @BeforeEach
+    void disableFkChecks() throws SQLException {
+        jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY FALSE");
+    }
+
+    @AfterEach
+    void enableFkChecks() throws SQLException {
+        jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY TRUE");
+    }
 
     @BeforeEach
     void setUp() {

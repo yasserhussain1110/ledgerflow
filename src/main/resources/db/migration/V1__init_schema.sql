@@ -2,9 +2,9 @@
 -- ENABLE EXTENSIONS
 -- =====================================================
 
+-- Only run on Postgres
+-- ${postgres-only}
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
-
 
 -- =====================================================
 -- MERCHANTS
